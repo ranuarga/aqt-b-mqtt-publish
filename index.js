@@ -9,8 +9,22 @@ const client = mqtt.connect(options)
 
 client.on('connect', function () {
     console.log('Connected')
+    function between(min, max) {  
+        return Math.floor(
+          Math.random() * (max - min + 1) + min
+        )
+    }
     setInterval(function() {
-        client.publish(process.env.DEVICE_ID, '0#7#26#21#0.1#0#55#')
+        let feedOne = 0
+        let randPh = between(7, 8)
+        let randTemperature = between(22, 30)
+        let randDo = between(8, 12)
+        let randAmonia = between(0, 2)
+        let feedTwo = 0
+        let randDutycycle = between(47, 60)
+        let stringChain = feedOne + '#' + randPh + '#' + randTemperature + '#' + 
+            randDo + '#' + randAmonia + '#' + feedTwo + '#' + randDutycycle
+        client.publish(process.env.DEVICE_ID, stringChain)
     }, 5000);
 })
 

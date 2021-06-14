@@ -6,37 +6,46 @@ const options = {
     port: 1883,
 }
 const client = mqtt.connect(options)
+let randPh, randTemperature, randDo, randAmonia, randDutycycle, stringChain
+let interval = null
+const maxAmonia = 2
+const minAmonia = 0
+const feedOne = 0
+const feedTwo = 0
 
 client.on('connect', function () {
     console.log('Connected')
-    function between(min, max) {  
-        return Math.floor(
-          Math.random() * (max - min + 1) + min
-        )
-    }
-    let randPh, randTemperature, randDo, randAmonia, randDutycycle, stringChain
-    const maxAmonia = 2
-    const minAmonia = 0
-    const feedOne = 0
-    const feedTwo = 0
-    setInterval(function() {
-        randPh = between(7, 8)
-        randTemperature = between(22, 30)
-        randDo = between(8, 12)
-        randAmonia = ((Math.random() * (maxAmonia - minAmonia)) + minAmonia).toFixed(2)
-        randDutycycle = between(47, 60)
-        stringChain = feedOne + '#' + randPh + '#' + randTemperature + '#' + 
-            randDo + '#' + randAmonia + '#' + feedTwo + '#' + randDutycycle
-        client.publish(process.env.DEVICE_ID, stringChain)
-        console.log(stringChain + ' ' + moment().format('YYYY-MM-DD HH:mm:ss.SSS'))
-    }, 5000)
+    client.subscribe(process.env.DEVICE_ID + '/ASKING')
 })
 
 client.on('error', function (error) {
     console.log(error)
 })
 
+function between(min, max) {  
+    return Math.floor(
+      Math.random() * (max - min + 1) + min
+    )
+}
+
 client.on('message', function (topic, message) {
+    if(topic == process.env.DEVICE_ID + '/ASKING') {
+        if(message.toString() == '1') {
+            interval = setInterval(function() {
+                randPh = between(7, 8)
+                randTemperature = between(22, 30)
+                randDo = between(8, 12)
+                randAmonia = ((Math.random() * (maxAmonia - minAmonia)) + minAmonia).toFixed(2)
+                randDutycycle = between(47, 60)
+                stringChain = feedOne + '#' + randPh + '#' + randTemperature + '#' + 
+                    randDo + '#' + randAmonia + '#' + feedTwo + '#' + randDutycycle
+                client.publish(process.env.DEVICE_ID, stringChain)
+                console.log(stringChain + ' ' + moment().format('YYYY-MM-DD HH:mm:ss.SSS'))
+            }, 5000)
+        } else if (message.toString() == '0') {
+            clearInterval(interval)
+        }
+    }
     //Called each time a message is received
     console.log('Received message:', topic, message.toString())
 })

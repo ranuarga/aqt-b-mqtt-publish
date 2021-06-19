@@ -1,6 +1,8 @@
 require('dotenv').config()
 const moment = require('moment')
 const mqtt = require('mqtt')
+const fs = require('fs')
+const csv = require('csv-parser')
 const options = {
     host: 'broker.hivemq.com',
     port: 1883,
@@ -32,13 +34,41 @@ client.on('message', function (topic, message) {
     if(topic == process.env.DEVICE_ID + '/ASKING') {
         if(message.toString() == '1') {
             interval = setInterval(function() {
-                randPh = between(7, 8)
-                randTemperature = between(22, 30)
-                randDo = between(8, 12)
-                randAmonia = ((Math.random() * (maxAmonia - minAmonia)) + minAmonia).toFixed(2)
-                randDutycycle = between(47, 60)
-                stringChain = feedOne + '#' + randPh + '#' + randTemperature + '#' + 
-                    randDo + '#' + randAmonia + '#' + feedTwo + '#' + randDutycycle
+                if(process.env.DATA_TYPE == 'RAND') {
+                    randPh = between(7, 8)
+                    randTemperature = between(22, 30)
+                    randDo = between(8, 12)
+                    randAmonia = ((Math.random() * (maxAmonia - minAmonia)) + minAmonia).toFixed(2)
+                    randDutycycle = between(47, 60)
+                    stringChain = feedOne + '#' + randPh + '#' + randTemperature + '#' + 
+                        randDo + '#' + randAmonia + '#' + feedTwo + '#' + randDutycycle
+                } else if (process.env.DATA_TYPE == 'DATASET') {
+                    // let i = 1
+                    console.log('poi1')
+                    fs.readFileSync('dataset.csv', "utf-8", function(err, data){
+                        if(err) {
+                            throw err;
+                        }
+                        let lines = data.split('\n')
+                        let line = lines[Math.floor(Math.random()*lines.length)].split(',')
+                        stringChain = feedOne + '#' + line[1] + '#' + line[2] + '#' + 
+                            line[3] + '#' + line[4] + '#' + feedTwo + '#' + line[6]
+                        console.log('poi2')
+                    })
+                    // fs.createReadStream('dataset.csv')
+                    //     .pipe(csv())
+                    //     .on('data', function (row) {
+                    //         if(between(1,32) == i) {
+                    //             console.log(i)
+                    //             stringChain = feedOne + '#' + row.ph + '#' + row.temperature + '#' + 
+                    //                 row.do + '#' + row.amonia + '#' + feedTwo + '#' + row.dutycycle
+                    //         }
+                    //         i++
+                    //     })
+                    //     .on('end', function () {
+                    //         // TO DO
+                    //     })
+                }
                 client.publish(process.env.DEVICE_ID, stringChain)
                 console.log(stringChain + ' ' + moment().format('YYYY-MM-DD HH:mm:ss.SSS'))
             }, 5000)

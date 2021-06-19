@@ -44,6 +44,7 @@ client.on('message', function (topic, message) {
             }, 5000)
         } else if (message.toString() == '0') {
             clearInterval(interval)
+            interval = null
         }
     }
     //Called each time a message is received

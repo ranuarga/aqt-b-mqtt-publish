@@ -1,14 +1,13 @@
 require('dotenv').config()
 const moment = require('moment')
 const mqtt = require('mqtt')
-const fs = require('fs')
-const csv = require('csv-parser')
+const dataset = require('./dataset')
 const options = {
     host: 'broker.hivemq.com',
     port: 1883,
 }
 const client = mqtt.connect(options)
-let randPh, randTemperature, randDo, randAmonia, randDutycycle, stringChain
+let randPh, randTemperature, randDo, randAmonia, randDutycycle, stringChain, line
 let interval = null
 const maxAmonia = 2
 const minAmonia = 0
@@ -43,31 +42,10 @@ client.on('message', function (topic, message) {
                     stringChain = feedOne + '#' + randPh + '#' + randTemperature + '#' + 
                         randDo + '#' + randAmonia + '#' + feedTwo + '#' + randDutycycle
                 } else if (process.env.DATA_TYPE == 'DATASET') {
-                    // let i = 1
-                    console.log('poi1')
-                    fs.readFileSync('dataset.csv', "utf-8", function(err, data){
-                        if(err) {
-                            throw err;
-                        }
-                        let lines = data.split('\n')
-                        let line = lines[Math.floor(Math.random()*lines.length)].split(',')
-                        stringChain = feedOne + '#' + line[1] + '#' + line[2] + '#' + 
-                            line[3] + '#' + line[4] + '#' + feedTwo + '#' + line[6]
-                        console.log('poi2')
-                    })
-                    // fs.createReadStream('dataset.csv')
-                    //     .pipe(csv())
-                    //     .on('data', function (row) {
-                    //         if(between(1,32) == i) {
-                    //             console.log(i)
-                    //             stringChain = feedOne + '#' + row.ph + '#' + row.temperature + '#' + 
-                    //                 row.do + '#' + row.amonia + '#' + feedTwo + '#' + row.dutycycle
-                    //         }
-                    //         i++
-                    //     })
-                    //     .on('end', function () {
-                    //         // TO DO
-                    //     })
+                    line = between(0,dataset.data.length - 1)
+                    dataSensor = dataset.data[line]
+                    stringChain = feedOne + '#' + dataSensor.ph + '#' + dataSensor.temperature + '#' + 
+                        dataSensor.do + '#' + dataSensor.amonia + '#' + feedTwo + '#' + dataSensor.dutycycle
                 }
                 client.publish(process.env.DEVICE_ID, stringChain)
                 console.log(stringChain + ' ' + moment().format('YYYY-MM-DD HH:mm:ss.SSS'))

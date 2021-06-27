@@ -14,6 +14,7 @@ const csvWriter = createCsvWriter({
         {id: 'amonia', title: 'amonia'},
         {id: 'feedTwo', title: 'feedTwo'},
         {id: 'dutycycle', title: 'dutycycle'},
+        {id: 'date', title: 'date'},
         {id: 'time', title: 'time'},
     ]
 });
@@ -22,7 +23,7 @@ const options = {
     port: 1883,
 }
 const client = mqtt.connect(options)
-let randPh, randTemperature, randDo, randAmonia, randDutycycle, stringChain, line, time
+let randPh, randTemperature, randDo, randAmonia, randDutycycle, stringChain, line, datetime, date, time
 let writeData = []
 let interval = null
 const maxAmonia = 2
@@ -67,8 +68,10 @@ client.on('message', function (topic, message) {
                 stringChain = feedOne + '#' + randPh + '#' + randTemperature + '#' + 
                         randDo + '#' + randAmonia + '#' + feedTwo + '#' + randDutycycle
                 client.publish(process.env.DEVICE_ID, stringChain)
-                time = moment().format('YYYY-MM-DD HH:mm:ss.SSS')
-                console.log(stringChain + ' ' + time)
+                datetime = moment()
+                date = datetime.format('YYYY-MM-DD')
+                time = datetime.format('HH:mm:ss.SSS')
+                console.log(stringChain + ' ' + date + ' ' + time)
                 writeData = [
                     {
                         "feedOne": feedOne,
@@ -78,6 +81,7 @@ client.on('message', function (topic, message) {
                         "amonia": randAmonia,
                         "feedTwo": feedTwo,
                         "dutycycle": randDutycycle,
+                        "date": time,
                         "time": time
                     }
                 ]

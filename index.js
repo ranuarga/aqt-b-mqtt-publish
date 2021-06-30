@@ -4,7 +4,7 @@ const mqtt = require('mqtt')
 const dataset = require('./dataset')
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const csvWriter = createCsvWriter({
-    path: 'log.csv',
+    path: process.env.DEVICE_ID + 'log.csv',
     append: true,
     header: [
         {id: 'feedOne', title: 'feedOne'},

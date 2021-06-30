@@ -81,7 +81,7 @@ client.on('message', function (topic, message) {
                         "amonia": randAmonia,
                         "feedTwo": feedTwo,
                         "dutycycle": randDutycycle,
-                        "date": time,
+                        "date": date,
                         "time": time
                     }
                 ]

@@ -2,7 +2,10 @@ require('dotenv').config()
 const moment = require('moment')
 const mqtt = require('mqtt')
 const dataset = require('./dataset')
-const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const createCsvWriter = require('csv-writer').createObjectCsvWriter
+const Logic = require('es6-fuzz/lib/logic')
+const Trapezoid = require('es6-fuzz/lib/curve/trapezoid')
+const Triangle = require('es6-fuzz/lib/curve/triangle')
 const csvWriter = createCsvWriter({
     path: process.env.DEVICE_ID + 'log.csv',
     append: true,
@@ -46,6 +49,42 @@ function between(min, max) {
     )
 }
 
+function fuzzy(temperature, amonia) {
+    let waterState
+    let logicTemperature = new Logic()
+    let resLogicTemperature = logicTemperature
+        .init('cold', new Trapezoid(15, 15, 20, 27.5))
+        .or('good', new Triangle(25, 27.5, 30))
+        .or('warm', new Triangle(27.5, 30, 32.5))
+        .or('hot',  new Trapezoid(30, 32.5, 40, 40))
+        .defuzzify(temperature)
+    
+    let logicAmonia = new Logic()
+    let resLogicAmonia = logicAmonia
+        .init('safe', new Trapezoid(0, 0, 0.25, 0.65))
+        .or('warn', new Triangle(0.25, 0.65, 1))
+        .or('tox', new Trapezoid(0.65, 1, 2, 2))
+        .defuzzify(amonia)
+    
+    let temperatureState = resLogicTemperature.defuzzified
+    let amoniaState = resLogicAmonia.defuzzified
+    if(amoniaState == 'safe' && (temperatureState == 'cold' || temperatureState == 'good')) {
+        waterState = 'baik'
+    } else if (amoniaState == 'safe' && temperatureState == 'warm') {
+        waterState = 'normal'
+    } else if (amoniaState == 'warn' && temperatureState == 'cold') {
+        waterState = 'baik'
+    } else if (amoniaState == 'warn' && (temperatureState == 'good' || temperatureState == 'warm')) {
+        waterState = 'normal'
+    } else {
+        waterState = 'buruk'
+    }
+
+    console.log(amoniaState + ' ' + temperatureState + ' ' + waterState)
+
+    return 55
+}
+
 client.on('message', function (topic, message) {
     if(topic == process.env.DEVICE_ID + '/ASKING') {
         if(message.toString() == '1') {
@@ -55,7 +94,6 @@ client.on('message', function (topic, message) {
                     randTemperature = between(22, 30)
                     randDo = between(8, 12)
                     randAmonia = ((Math.random() * (maxAmonia - minAmonia)) + minAmonia).toFixed(2)
-                    randDutycycle = between(47, 60)
                 } else if (process.env.DATA_TYPE == 'DATASET') {
                     line = between(0,dataset.data.length - 1)
                     dataSensor = dataset.data[line]
@@ -63,8 +101,8 @@ client.on('message', function (topic, message) {
                     randTemperature = dataSensor.temperature
                     randDo = dataSensor.do
                     randAmonia = dataSensor.amonia
-                    randDutycycle = dataSensor.dutycycle
                 }
+                randDutycycle = fuzzy(randTemperature, randAmonia)
                 stringChain = feedOne + '#' + randPh + '#' + randTemperature + '#' + 
                         randDo + '#' + randAmonia + '#' + feedTwo + '#' + randDutycycle
                 client.publish(process.env.DEVICE_ID, stringChain)

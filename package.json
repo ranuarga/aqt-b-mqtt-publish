@@ -11,6 +11,7 @@
   "dependencies": {
     "csv-writer": "^1.6.0",
     "dotenv": "^8.2.0",
+    "es6-fuzz": "^3.0.5",
     "moment": "^2.29.1",
     "mqtt": "^4.2.6"
   }

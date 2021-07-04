@@ -2,10 +2,9 @@ require('dotenv').config()
 const moment = require('moment')
 const mqtt = require('mqtt')
 const dataset = require('./dataset')
+const fuzzyis = require('fuzzyis')
+const {LinguisticVariable, Term, Rule, FIS} = fuzzyis
 const createCsvWriter = require('csv-writer').createObjectCsvWriter
-const Logic = require('es6-fuzz/lib/logic')
-const Trapezoid = require('es6-fuzz/lib/curve/trapezoid')
-const Triangle = require('es6-fuzz/lib/curve/triangle')
 const csvWriter = createCsvWriter({
     path: process.env.DEVICE_ID + 'log.csv',
     append: true,
@@ -21,11 +20,73 @@ const csvWriter = createCsvWriter({
         {id: 'time', title: 'time'},
     ]
 });
+
 const options = {
     host: 'broker.hivemq.com',
     port: 1883,
 }
 const client = mqtt.connect(options)
+
+const system = new FIS('Aquaponic Pump System')
+const speedState = new LinguisticVariable('speed', [40, 65])
+const temperatureState = new LinguisticVariable('temperature', [15, 40])
+const amoniaState = new LinguisticVariable('amonia', [0, 2])
+system.addOutput(speedState)
+system.addInput(amoniaState)
+system.addInput(temperatureState)
+amoniaState.addTerm(new Term('safe', 'trapeze', [0, 0, 0.25, 0.65]))
+amoniaState.addTerm(new Term('warn', 'triangle', [0.25, 0.65, 1]))
+amoniaState.addTerm(new Term('tox', 'trapeze', [0.65, 1, 2, 2]))
+temperatureState.addTerm(new Term('cold', 'trapeze', [15, 15, 20, 27.5]))
+temperatureState.addTerm(new Term('good', 'triangle', [25, 27.5, 30]))
+temperatureState.addTerm(new Term('warm', 'triangle', [27.5, 30, 32.5]))
+temperatureState.addTerm(new Term('hot', 'trapeze', [30, 32.5, 40, 40]))
+speedState.addTerm(new Term('slow', 'trapeze', [40, 40, 45, 52.5]))
+speedState.addTerm(new Term('normal', 'triangle', [45, 52.5, 60]))
+speedState.addTerm(new Term('quick', 'trapeze', [52.5, 60, 65, 65]))
+system.rules = [
+    new Rule(
+        ['safe', 'cold'],
+        ['slow'],
+        'and'
+    ),
+    new Rule(
+        ['safe', 'good'],
+        ['slow'],
+        'and'
+    ),
+    new Rule(
+        ['safe', 'warm'],
+        ['normal'],
+        'and'
+    ),
+    new Rule(
+        ['warn', 'cold'],
+        ['slow'],
+        'and'
+    ),
+    new Rule(
+        ['warn', 'good'],
+        ['normal'],
+        'and'
+    ),
+    new Rule(
+        ['warn', 'warm'],
+        ['normal'],
+        'and'
+    ),
+    new Rule(
+        ['tox', null],
+        ['quick'],
+        'and'
+    ),
+    new Rule(
+        [null, 'hot'],
+        ['quick'],
+        'and'
+    )
+]
+
 let randPh, randTemperature, randDo, randAmonia, randDutycycle, stringChain, line, datetime, date, time
 let writeData = []
 let interval = null
@@ -49,42 +110,6 @@ function between(min, max) {
     )
 }
 
-function fuzzy(temperature, amonia) {
-    let waterState
-    let logicTemperature = new Logic()
-    let resLogicTemperature = logicTemperature
-        .init('cold', new Trapezoid(15, 15, 20, 27.5))
-        .or('good', new Triangle(25, 27.5, 30))
-        .or('warm', new Triangle(27.5, 30, 32.5))
-        .or('hot',  new Trapezoid(30, 32.5, 40, 40))
-        .defuzzify(temperature)
-    
-    let logicAmonia = new Logic()
-    let resLogicAmonia = logicAmonia
-        .init('safe', new Trapezoid(0, 0, 0.25, 0.65))
-        .or('warn', new Triangle(0.25, 0.65, 1))
-        .or('tox', new Trapezoid(0.65, 1, 2, 2))
-        .defuzzify(amonia)
-    
-    let temperatureState = resLogicTemperature.defuzzified
-    let amoniaState = resLogicAmonia.defuzzified
-    if(amoniaState == 'safe' && (temperatureState == 'cold' || temperatureState == 'good')) {
-        waterState = 'baik'
-    } else if (amoniaState == 'safe' && temperatureState == 'warm') {
-        waterState = 'normal'
-    } else if (amoniaState == 'warn' && temperatureState == 'cold') {
-        waterState = 'baik'
-    } else if (amoniaState == 'warn' && (temperatureState == 'good' || temperatureState == 'warm')) {
-        waterState = 'normal'
-    } else {
-        waterState = 'buruk'
-    }
-
-    console.log(amoniaState + ' ' + temperatureState + ' ' + waterState)
-
-    return 55
-}
-
 client.on('message', function (topic, message) {
     if(topic == process.env.DEVICE_ID + '/ASKING') {
         if(message.toString() == '1') {
@@ -102,7 +127,7 @@ client.on('message', function (topic, message) {
                     randDo = dataSensor.do
                     randAmonia = dataSensor.amonia
                 }
-                randDutycycle = fuzzy(randTemperature, randAmonia)
+                randDutycycle = system.getPreciseOutput([randAmonia, randTemperature])
                 stringChain = feedOne + '#' + randPh + '#' + randTemperature + '#' + 
                         randDo + '#' + randAmonia + '#' + feedTwo + '#' + randDutycycle
                 client.publish(process.env.DEVICE_ID, stringChain)

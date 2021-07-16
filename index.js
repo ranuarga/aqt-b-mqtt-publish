@@ -92,8 +92,8 @@ let writeData = []
 let interval = null
 const maxAmonia = 2
 const minAmonia = 0
-const feedOne = 0
-const feedTwo = 0
+const feedOne = 10
+const feedTwo = 10
 
 client.on('connect', function () {
     console.log('Connected')
@@ -149,7 +149,7 @@ client.on('message', function (topic, message) {
                     }
                 ]
                 csvWriter.writeRecords(writeData).then(() => console.log('Data Logged'))
-            }, 5000)
+            }, process.env.DELAY_TIME)
         } else if (message.toString() == '0') {
             clearInterval(interval)
             interval = null
